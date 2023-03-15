@@ -399,6 +399,12 @@ work out-of-the-box. Please feel free to refer to related documentations for det
     
     ```
 
+1. Shutdown the platform
+
+   ```shell
+   vctl shutdown --platform
+   ```
+
 # Development
 
 Please see the following for contributing
