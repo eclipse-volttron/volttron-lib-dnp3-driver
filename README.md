@@ -15,9 +15,9 @@ The DNP3-Driver is a wrapper on the DNP3 master following
 the [VOLTTRON driver framework](https://volttron.readthedocs.io/en/develop/agent-framework/driver-framework/drivers-overview.html#driver-framework).
 
 Note that the DNP3-Driver requires a DNP3 outstation instance to properly function. e.g., polling data, setting point
-values, etc. does not connect to any actual device and instead produces random and or pre-configured values.
-The [dnp3-python](https://github.com/VOLTTRON/dnp3-python) can provide the essential outstation functionality, and as
-part of the DNP3-Driver dependency, and it is immediately available after the DNP3-Driver is installed.
+values, etc. The [dnp3-python](https://github.com/VOLTTRON/dnp3-python) can provide the essential outstation
+functionality, and as part of the DNP3-Driver dependency, it is immediately available after the DNP3-Driver is
+installed.
 
 # Prerequisites
 
