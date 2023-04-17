@@ -1,0 +1,4 @@
+# mainly for local testing
+volttron-platform-driver:
+  version: docs
+  repo: https://github.com/davidraker/volttron-platform-driver

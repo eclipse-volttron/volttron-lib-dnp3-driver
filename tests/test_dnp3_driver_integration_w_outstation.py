@@ -38,6 +38,7 @@ def outstation_app(request):
     outstation_app fixture need to in "module" scope to prevent interrupting pytest during outstation shut-down
     """
     # Note: allow parsing argument to fixture change port number using `request.param`
+    # TODO: verify that there is no port conflict during Github Action multi python version test, {{ matrix.python }}
     try:
         port = request.param
     except AttributeError:
@@ -106,7 +107,7 @@ class TestStation:
             # print(f"===val_update {val_update}, val_get {val_get}")
             assert val_get == val_update
 
-        time.sleep(1)  # add delay buffer to pass the "stale_if_longer_than" checking statge
+        time.sleep(1)  # add delay buffer to pass the "stale_if_longer_than" checking status
 
         # outstation update with random values
         analog_input_val_random = [random.random() for i in range(3)]
@@ -132,7 +133,7 @@ class TestStation:
             # print(f"===val_update {val_update}, val_get {val_get}")
             assert val_get == val_to_set
 
-        time.sleep(1)  # add delay buffer to pass the "stale_if_longer_than" checking statge
+        time.sleep(1)  # add delay buffer to pass the "stale_if_longer_than" checking status
 
         # outstation update with random values
         analog_output_val_random = [random.random() for i in range(3)]
