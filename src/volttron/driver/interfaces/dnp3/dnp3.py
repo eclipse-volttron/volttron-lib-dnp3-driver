@@ -46,6 +46,7 @@ Register = TypeVar("Register", bound=BaseRegister)
 
 
 class Dnp3Register(BaseRegister):
+    # TODO: developed more robust logic when not connecting with an outstation.
 
     def __init__(self, read_only, pointName, units, reg_type, default_value=None, description='',
                  reg_definition=None, master_application=None):
@@ -58,7 +59,7 @@ class Dnp3Register(BaseRegister):
         self.reg_type = reg_type
         self.pointName = pointName
 
-        self.value = None
+        self._value = None  # use _value as cache
         self.group = int(reg_definition.get("Group"))
         self.variation = int(reg_definition.get("Variation"))
         self.index = int(reg_definition.get("Index"))
@@ -76,9 +77,10 @@ class Dnp3Register(BaseRegister):
                 _log.warning(f"Register value for pointName {self.pointName} is None.")
                 # raise ValueError(f"Register value for pointName {self.pointName} is None. Hence not publish.")
                 # TODO: figure out an elegant way to not publish None values.
-            return value
+            self._value = value
+            return self._value
         except Exception as e:
-            _log.error(e)
+            _log.exception(e, stack_info=True)
             _log.warning("udd_dnp3 driver (master) couldn't get value from the outstation.")
 
     @staticmethod
@@ -102,8 +104,9 @@ class Dnp3Register(BaseRegister):
                                     variation=self.variation,
                                     index=self.index,
                                     set_value=_val)
+            self._value = _val
         except Exception as e:
-            _log.error(e)
+            _log.exception(e, stack_info=True)
             _log.warning("udd_dnp3 driver (master) couldn't set value for the outstation.")
 
     @staticmethod
@@ -150,19 +153,21 @@ class Dnp3Driver(BasicRevert, BaseInterface):
     def _set_point(self, point_name, value: RegisterValue):
         register: Dnp3Register = self.get_register_by_name(point_name)
         if register.read_only:
-            raise RuntimeError("Trying to write to a point configured read only: " + point_name)
+            raise ValueError("Trying to write to a point configured read only: " + point_name)
         # register.value = register.reg_type(value)  # old logic to cast value to reg_type value (not robust)
         register.value = value
-        # Note: simple retry logic
-        retry_max = 10
-        for n in range(retry_max):
-            if register.value == value:
-                return register.value
-            register.value = value
-            sleep(1)
-            # _log.info(f"Starting set_point {n}th RETRY for {point_name}")
-        _log.warning(f"Failed to set_point for {point_name} after {retry_max} retry.")
-        return None
+        return register._value
+        # # Note: simple retry logic
+        # # TODO: make retry attempt configurable
+        # retry_max = 3
+        # for n in range(retry_max):
+        #     if register._value == value:  # use _value as cache
+        #         return register.value
+        #     register.value = value  # otherwise, retry
+        #     sleep(1)
+        #     # _log.info(f"Starting set_point {n}th RETRY for {point_name}")
+        # _log.warning(f"Failed to set_point for {point_name} after {retry_max} retry.")
+        # return None
 
     def _scrape_all(self):
         result = {}
