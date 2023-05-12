@@ -7,7 +7,7 @@ profile = "black"
 
 [tool.poetry]
 name = "volttron-lib-dnp3-driver"
-version = "0.1.0-rc"
+version = "0.1.1rc0"
 description = "A minimal implementation of a driver for the VOLTTRON platform."
 authors = ["VOLTTRON Team <volttron@pnnl.gov>"]
 license = "Apache License 2.0"
@@ -26,14 +26,15 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = "^3.10"
 volttron-lib-base-driver = "^0.2.0rc0"
-dnp3-python = "^0.2.3b2"
+dnp3-python = ">=0.2.3b3, <0.3.0"
 
 [tool.poetry.group.dev.dependencies]
 volttron-testing = "^0.4.0rc0"
 pytest = "^6.2.5"
 pytest-cov = "^3.0.0"
+pytest-env = ">0"
 mock = "^4.0.3"
 pre-commit = "^2.17.0"
 yapf = "^0.32.0"

@@ -1,6 +1,11 @@
 # volttron-lib-dnp3-driver
 
-[//]: # (TODO: get the badges)
+[![Eclipse VOLTTRON™](https://img.shields.io/badge/Eclips%20VOLTTRON--red.svg)](https://volttron.readthedocs.io/en/latest/)
+![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)
+![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
+[![Pytests](https://github.com/eclipse-volttron/volttron-lib-dnp3-driver/actions/workflows/run-tests.yml/badge.svg)](https://github.com/eclipse-volttron/volttron-lib-dnp3-driver/actions/workflows/run-tests.yml)
+[![pypi version](https://img.shields.io/pypi/v/volttron-lib-dnp3-driver.svg)](https://pypi.org/project/volttron-lib-dnp3-driver/)
+
 
 Distributed Network Protocol (DNP
 or [DNP3](https://en.wikipedia.org/wiki/DNP3))
@@ -21,7 +26,7 @@ installed.
 
 # Prerequisites
 
-* Python 3 (tested with Python3.8, Python3.9, Python3.10)
+* Python 3.10
 
 ## Python
 
@@ -37,11 +42,11 @@ export PATH="${HOME}/.pyenv/bin:${PATH}"
 export PYENV_ROOT="${HOME}/.pyenv"
 eval "$(pyenv init -)"
 
-# install Python 3.8
-pyenv install 3.8.10
+# install Python 3.10
+pyenv install 3.10
 
 # make it available globally
-pyenv global system 3.8.10
+pyenv global system 3.10
 ```
 
 </details>

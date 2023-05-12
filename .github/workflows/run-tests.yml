@@ -27,9 +27,11 @@ jobs:
   run-tests:
 
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-22.04]
-        python: ['3.8', '3.9', '3.10']
+#        python: ['3.10', '3.11']  In the future
+        python: ['3.10']
 
     runs-on: ${{ matrix.os }}
 

@@ -13,6 +13,9 @@ from pydnp3 import opendnp3
 
 from dnp3_python.dnp3station.master_new import MyMasterNew
 from dnp3_python.dnp3station.outstation_new import MyOutStationNew
+PORT = 50000
+PORT50001 = 50001
+PORT50002 = 50002
 
 import os
 
@@ -38,10 +41,11 @@ def outstation_app(request):
     outstation_app fixture need to in "module" scope to prevent interrupting pytest during outstation shut-down
     """
     # Note: allow parsing argument to fixture change port number using `request.param`
+    # TODO: verify that there is no port conflict during Github Action multi python version test, {{ matrix.python }}
     try:
         port = request.param
     except AttributeError:
-        port = 20000
+        port = 30000
     outstation_appl = MyOutStationNew(port=port)  # Note: using default port 20000
     outstation_appl.start()
     # time.sleep(3)
@@ -63,7 +67,7 @@ def master_app(request):
     try:
         port = request.param
     except AttributeError:
-        port = 20000
+        port = 30000
     # Note: using default port 20000,
     # Note: using small "stale_if_longer_than" to force update
     master_appl = MyMasterNew(port=port, stale_if_longer_than=0.1)
@@ -77,6 +81,14 @@ def master_app(request):
     time.sleep(1)
 
 
+@pytest.mark.parametrize('master_app', [PORT50001, PORT50002], indirect=['master_app'])
+def test_master_appl_fixture(master_app):
+    master: MyMasterNew = master_app
+    logging.info(f"============ master.port {master.get_config()}")
+
+
+@pytest.mark.parametrize('outstation_app', [PORT], indirect=['outstation_app'])
+@pytest.mark.parametrize('master_app', [PORT], indirect=['master_app'])
 class TestStation:
     """
     Testing the underlying pydnp3 package station-related fuctions.
@@ -106,7 +118,7 @@ class TestStation:
             # print(f"===val_update {val_update}, val_get {val_get}")
             assert val_get == val_update
 
-        time.sleep(1)  # add delay buffer to pass the "stale_if_longer_than" checking statge
+        time.sleep(1)  # add delay buffer to pass the "stale_if_longer_than" checking status
 
         # outstation update with random values
         analog_input_val_random = [random.random() for i in range(3)]
@@ -132,7 +144,7 @@ class TestStation:
             # print(f"===val_update {val_update}, val_get {val_get}")
             assert val_get == val_to_set
 
-        time.sleep(1)  # add delay buffer to pass the "stale_if_longer_than" checking statge
+        time.sleep(1)  # add delay buffer to pass the "stale_if_longer_than" checking status
 
         # outstation update with random values
         analog_output_val_random = [random.random() for i in range(3)]
@@ -149,7 +161,7 @@ class TestStation:
 @pytest.fixture
 def dnp3_inherit_init_args(csv_config, driver_config_in_json_config):
     """
-    args required for parent class init (i.e., class WrapperRegister)
+    args required for parent class init (i.e., class WrapperRegister)f
     """
     # args = {'driver_config': driver_config_in_json_config,
     #         'point_name': "",
@@ -205,6 +217,8 @@ def reg_def_dummy():
     return reg_def
 
 
+@pytest.mark.parametrize('outstation_app', [PORT], indirect=['outstation_app'])
+@pytest.mark.parametrize('master_app', [PORT], indirect=['master_app'])
 class TestDNPRegister:
     """
     Tests for UserDevelopRegisterDnp3 class
@@ -217,7 +231,7 @@ class TestDNPRegister:
         binary input
     """
 
-    def test_init(self, master_app, csv_config, dnp3_inherit_init_args):
+    def test_init(self, outstation_app, master_app, csv_config, dnp3_inherit_init_args):
         for reg_def in csv_config:
             # Dnp3Register(read_only=False, pointName="pointName", units="units", reg_type="reg_type", default_value=None,
             #              description='',
@@ -249,7 +263,7 @@ class TestDNPRegister:
         # outstation update values
         for i, val_update in enumerate(analog_input_val):
             outstation_app.apply_update(opendnp3.Analog(value=val_update), index=i)
-            # time.sleep(1)
+            time.sleep(1)
 
         # verify: driver read value
         for i, (val_update, reg_def) in enumerate(zip(analog_input_val, reg_defs)):
@@ -325,6 +339,8 @@ class TestDNPRegister:
             assert val_get == val_update
 
 
+@pytest.mark.parametrize('outstation_app', [PORT], indirect=['outstation_app'])
+@pytest.mark.parametrize('master_app', [PORT], indirect=['master_app'])
 class TestDNP3RegisterControlWorkflow:
 
     def test_set_register_value_analog_float(self, outstation_app, master_app, csv_config,
