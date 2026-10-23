@@ -122,7 +122,7 @@ class TestSetup:
         iface = make_interface(STANDARD_POINTS, integrity_poll_interval=600, unsolicited=True, unsolicited_classes=[1])
         ppm.queue(serialized({'client': '10.0.0.5:20000:1:2', 'points': 7}))
         iface.finalize_setup(initial_setup=True)
-        assert ppm.launch == (('dnp3',), {}) and ppm.registration_waits == [30.0] and iface.proxy_peer is ppm.peer
+        assert ppm.launch == (('dnp3',), {'persistent': True}) and ppm.registration_waits == [30.0] and iface.proxy_peer is ppm.peer
         (method, payload, expects_reply), = ppm.sent
         assert method == 'REGISTER_REMOTE' and expects_reply
         assert payload == {'role': 'master', **IDENTITY, 'response_timeout': 5.0, 'link_reset': True, 'integrity_poll_interval': 600.0,

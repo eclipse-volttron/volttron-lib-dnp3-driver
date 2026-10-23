@@ -185,7 +185,7 @@ class Dnp3RemoteConfig(RemoteConfig):
     # How long this interface waits for the proxy's reply; defaults to three response timeouts, at least 30 s.
     reply_timeout: float | None = Field(default=None, gt=0)
     registration_timeout: float = Field(default=30.0, gt=0)
-    persistent_connection: bool = Field(default=False, description='Keep one IPC connection to the proxy open for every'
+    persistent_connection: bool = Field(default=True, description='Keep one IPC connection to the proxy open for every'
                                         ' request and push instead of one connection per message.')
     # All outstations share one proxy process unless a group is named here.
     proxy_group: str | None = None
