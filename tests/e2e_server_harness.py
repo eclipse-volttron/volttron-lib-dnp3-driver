@@ -112,7 +112,10 @@ try:
     old_peer.process.terminate()
     relaunched = wait_for(lambda: served.proxy_peer is not None and served.proxy_peer is not old_peer
                           and served.proxy_peer.socket_params is not None and master.proxy_peer is served.proxy_peer, 20)
-    check('proxy relaunched after a crash and both remotes set up again', relaunched)
+    # Both interfaces register again on their recovery timers; the served outstation is up once the proxy has pushed
+    # its table again (the entry after the one appended above), so wait for that before using it.
+    registered_again = wait_for(lambda: len(served_agent.pushed) > 1, 20)
+    check('proxy relaunched after a crash and both remotes set up again', relaunched and registered_again)
 
     def master_reads():
         """Both interfaces register again right after the peer is up; retry until the master's read goes through."""
