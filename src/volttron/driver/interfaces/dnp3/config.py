@@ -162,33 +162,74 @@ class Dnp3RemoteConfig(RemoteConfig):
     """One remote: the outstation to reach (role ``master``) or the outstation to serve (role ``outstation``). Keys from
     the previous driver (`master_ip`, `outstation_ip`, `master_id`, `outstation_id`) are accepted, so existing device
     configurations keep working."""
-    driver_role: DriverRole = DriverRole.master
+    driver_role: DriverRole = Field(default=DriverRole.master,
+                                    description='master reaches an outstation; outstation serves the registry to a '
+                                                'master.',
+                                    json_schema_extra={'group': 'Device', 'order': 20})
     # Master role: the outstation's address. Required in that role.
-    outstation_ip: str | None = Field(default=None, validation_alias=AliasChoices('outstation_ip', 'host', 'device_address'))
+    outstation_ip: str | None = Field(default=None,
+                                      validation_alias=AliasChoices('outstation_ip', 'host', 'device_address'),
+                                      description="Master: the outstation's address.",
+                                      json_schema_extra={'group': 'Connection',
+                                                         'show_when': {'driver_role': ['client', 'master']},
+                                                         'order': 10})
     # Outstation role: the interface to listen on.
-    bind_host: str = Field(default='0.0.0.0', validation_alias=AliasChoices('bind_host', 'listen_host'))
-    port: int = 20000
-    master_id: int = Field(default=2, validation_alias=AliasChoices('master_id', 'master_address'))
-    outstation_id: int = Field(default=1, validation_alias=AliasChoices('outstation_id', 'outstation_address'))
+    bind_host: str = Field(default='0.0.0.0', validation_alias=AliasChoices('bind_host', 'listen_host'),
+                           description='Outstation: the interface to listen on.',
+                           json_schema_extra={'group': 'Connection',
+                                              'show_when': {'driver_role': ['server', 'slave', 'outstation']},
+                                              'order': 20})
+    port: int = Field(default=20000, json_schema_extra={'group': 'Connection', 'order': 30})
+    master_id: int = Field(default=2, validation_alias=AliasChoices('master_id', 'master_address'),
+                           description='DNP3 link address of the master.',
+                           json_schema_extra={'group': 'Connection', 'order': 40})
+    outstation_id: int = Field(default=1, validation_alias=AliasChoices('outstation_id', 'outstation_address'),
+                               description='DNP3 link address of the outstation.',
+                               json_schema_extra={'group': 'Connection', 'order': 50})
     # Accepted from old configurations and not used: dnp3py does not bind a local address.
-    master_ip: str | None = None
-    control_mode: ControlMode = ControlMode.direct
-    read_mode: ReadMode = ReadMode.class_poll
-    poll_classes: list[int] = [0]
+    master_ip: str | None = Field(default=None, description='Accepted from old configurations and not used.',
+                                  json_schema_extra={'group': 'Connection', 'advanced': True, 'order': 60})
+    control_mode: ControlMode = Field(default=ControlMode.direct,
+                                      description='direct operate or select-before-operate.',
+                                      json_schema_extra={'group': 'Protocol and timing', 'order': 70})
+    read_mode: ReadMode = Field(default=ReadMode.class_poll,
+                                description='class polls or reads of the configured points.',
+                                json_schema_extra={'group': 'Protocol and timing', 'order': 80})
+    poll_classes: list[int] = Field(default=[0], description='Event classes each poll asks for.',
+                                    json_schema_extra={'group': 'Protocol and timing', 'order': 90})
     # Seconds between integrity polls; 0 disables them, one always runs when the connection opens.
-    integrity_poll_interval: float = Field(default=3600.0, ge=0)
-    unsolicited: bool = False
-    unsolicited_classes: list[int] = [1, 2, 3]
-    link_reset: bool = True
+    integrity_poll_interval: float = Field(default=3600.0, ge=0,
+                                           description='Seconds between integrity polls; 0 disables them, one always '
+                                                       'runs when the connection opens.',
+                                           json_schema_extra={'group': 'Protocol and timing', 'unit': 's',
+                                                              'order': 100})
+    unsolicited: bool = Field(default=False, description='Enable unsolicited responses from the outstation.',
+                              json_schema_extra={'group': 'Protocol and timing', 'order': 110})
+    unsolicited_classes: list[int] = Field(default=[1, 2, 3],
+                                           json_schema_extra={'group': 'Protocol and timing', 'advanced': True,
+                                                              'order': 120})
+    link_reset: bool = Field(default=True,
+                             json_schema_extra={'group': 'Protocol and timing', 'advanced': True, 'order': 130})
     # How long the proxy waits for the outstation to answer one request.
-    response_timeout: float = Field(default=5.0, gt=0)
+    response_timeout: float = Field(default=5.0, gt=0,
+                                    description='How long the proxy waits for the outstation to answer one request.',
+                                    json_schema_extra={'group': 'Protocol and timing', 'unit': 's', 'order': 140})
     # How long this interface waits for the proxy's reply; defaults to three response timeouts, at least 30 s.
-    reply_timeout: float | None = Field(default=None, gt=0)
-    registration_timeout: float = Field(default=30.0, gt=0)
+    reply_timeout: float | None = Field(default=None, gt=0,
+                                        description="How long this interface waits for the proxy's reply; defaults to "
+                                                    'three response timeouts, at least 30 s.',
+                                        json_schema_extra={'group': 'Proxy', 'advanced': True, 'unit': 's',
+                                                           'order': 150})
+    registration_timeout: float = Field(default=30.0, gt=0,
+                                        json_schema_extra={'group': 'Proxy', 'advanced': True, 'unit': 's',
+                                                           'order': 160})
     persistent_connection: bool = Field(default=True, description='Keep one IPC connection to the proxy open for every'
-                                        ' request and push instead of one connection per message.')
+                                        ' request and push instead of one connection per message.',
+                                        json_schema_extra={'group': 'Proxy', 'advanced': True, 'order': 170})
     # All outstations share one proxy process unless a group is named here.
-    proxy_group: str | None = None
+    proxy_group: str | None = Field(default=None,
+                                    description='All outstations share one proxy process unless a group is named here.',
+                                    json_schema_extra={'group': 'Proxy', 'advanced': True, 'order': 180})
 
     @field_validator('control_mode', 'read_mode', mode='before')
     @classmethod
