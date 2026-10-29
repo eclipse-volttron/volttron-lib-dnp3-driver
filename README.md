@@ -1,427 +1,184 @@
-# volttron-lib-dnp3-driver
+# VOLTTRON DNP3 Driver Interface
 
-[![Eclipse VOLTTRON™](https://img.shields.io/badge/Eclips%20VOLTTRON--red.svg)](https://volttron.readthedocs.io/en/latest/)
-![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)
-![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
-[![Pytests](https://github.com/eclipse-volttron/volttron-lib-dnp3-driver/actions/workflows/run-tests.yml/badge.svg)](https://github.com/eclipse-volttron/volttron-lib-dnp3-driver/actions/workflows/run-tests.yml)
-[![pypi version](https://img.shields.io/pypi/v/volttron-lib-dnp3-driver.svg)](https://pypi.org/project/volttron-lib-dnp3-driver/)
+A DNP3 (IEEE 1815-2012) master interface for the modular VOLTTRON Platform Driver. The protocol runs in a separate
+[DNP3 Protocol Proxy](https://github.com/eclipse-volttron/lib-protocol-proxy-dnp3) process built on the pure Python
+[dnp3py](https://github.com/craigpnnl/dnp3py) library; this interface registers each outstation and its points with
+that proxy, polls and operates points through it, and publishes the unsolicited responses it pushes back. No C
+libraries are involved.
 
+## Requirements
 
-Distributed Network Protocol (DNP
-or [DNP3](https://en.wikipedia.org/wiki/DNP3))
-has achieved a large-scale acceptance since its introduction in 1993. This
-protocol is an immediately deployable solution for monitoring remote sites because it was developed for communication of
-critical infrastructure status, allowing for reliable remote control.
+- `volttron-platform-driver` and `volttron-lib-base-driver` >= 2.0.0rc6
+- `protocol-proxy-dnp3` >= 2.0.0rc0 (installed as a dependency), which brings `protocol-proxy` and `dnp3py`
+- Python >= 3.11
 
-DNP3 is typically used between centrally located masters and distributed remotes. The master provides the interface
-between the human network manager and the monitoring system. The remote (RTUs and intelligent electronic devices)
-provides the interface between the master and the physical device(s) being monitored and/or controlled.
-The DNP3-Driver is a wrapper on the DNP3 master following
-the [VOLTTRON driver framework](https://volttron.readthedocs.io/en/develop/agent-framework/driver-framework/drivers-overview.html#driver-framework).
+## Quick start
 
-Note that the DNP3-Driver requires a DNP3 outstation instance to properly function. e.g., polling data, setting point
-values, etc. The [dnp3-python](https://github.com/VOLTTRON/dnp3-python) can provide the essential outstation
-functionality, and as part of the DNP3-Driver dependency, it is immediately available after the DNP3-Driver is
-installed.
-
-# Prerequisites
-
-* Python 3.10
-
-## Python
-
-<details>
-<summary>To install specific Python version (e.g., Python 3.8), we recommend using <a href="https://github.com/pyenv/pyenv"><code>pyenv</code></a>.</summary>
+Install the Platform Driver and this interface into the VOLTTRON environment, then store a device configuration and
+its registry:
 
 ```shell
-# install pyenv
-git clone https://github.com/pyenv/pyenv ~/.pyenv
-
-# setup pyenv (you should also put these three lines in .bashrc or similar)
-export PATH="${HOME}/.pyenv/bin:${PATH}"
-export PYENV_ROOT="${HOME}/.pyenv"
-eval "$(pyenv init -)"
-
-# install Python 3.10
-pyenv install 3.10
-
-# make it available globally
-pyenv global system 3.10
+vctl install volttron-platform-driver --vip-identity platform.driver --start
+pip install volttron-lib-dnp3-driver
+vctl config store platform.driver dnp3.csv example-config/dnp3.csv --csv
+vctl config store platform.driver devices/campus/building/der example-config/dnp3.config
 ```
 
-</details>
+## Device configuration
 
-# Quick Start
-
-The following recipe walks through the steps to install and configure a DNP3 Driver. Note that it uses default setup to
-work out-of-the-box. Please feel free to refer to related documentations for details.
-
-1. Create and activate a virtual environment.
-
-   It is recommended to use a virtual environment for installing volttron.
-
-    ```shell
-    python -m venv env
-    source env/bin/activate
-    
-    pip install volttron
-    ```
-
-1. Install volttron and start the platform.
-
-   > **Note**:
-   > According to [volttron-core#readme](https://github.com/eclipse-volttron/volttron-core#readme), setup VOLTTRON_HOME
-   > environment variable is mandatory:
-
-   > ... if you have/had in the past, a monolithic VOLTTRON version that used the default VOLTTRON_HOME
-   > $HOME/.volttron. This modular version of VOLTTRON cannot work with volttron_home used by monolithic version of
-   > VOLTTRON(version 8.3 or earlier)
-
-    ```shell
-    # Setup enviornment variable
-    export VOLTTRON_HOME=/path/to/volttron_home/dir
-    
-    # Start platform with output going to volttron.log
-    volttron -vv -l volttron.log &
-    ```
-
-1. Install the volttron platform driver:
-
-   Note: for reproducibility, this demo will install platform driver with `vip-identity==platform_driver_for_dnp3`.
-   Free feel to specify any agent vip-identity as desired.
-
-    ```shell
-    vctl install volttron-platform-driver --vip-identity platform_driver_for_dnp3 --start
-    ```
-
-    <details>
-    <summary>Verify with `vctl status`.</summary>
-
-    ```shell
-    (env) kefei@ubuntu-22:~/sandbox/dnp3-driver-sandbox$ vctl status
-    
-    UUID   AGENT                             IDENTITY                     TAG PRIORITY STATUS          HEALTH                                   
-    
-    5      volttron-platform-driver-0.2.0rc1 platform_driver_for_dnp3                  running [23217] GOOD
-    ```
-
-    </details>
-
-1. Install the "volttron-lib-dnp3-driver" library.
-
-   There are two options to install the DNP3 Driver. You can install this library using the version on PyPi or install
-   it from the source code (`git clone` might be required.)
-
-    ```shell
-    # option 1: install from pypi
-    pip install volttron-lib-dnp3-driver
-    
-    # option 2: install from the source code
-    pip install <path-to-the-source-code-root>/volttron-lib-dnp3-driver/
-    ```
-
-1. Install a DNP3 Driver onto the Platform Driver.
-
-   Installing a DNP3 driver in the Platform Driver Agent requires adding copies of the device configuration and registry
-   configuration files to the Platform Driver’s configuration store. For demo purpose, we will use default configure
-   files.
-
-   Prepare the default config files:
-
-    ```shell
-    # Create config file place holders
-    mkdir config
-    touch config/dnp3-config.json
-    touch config/dnp3.csv
-    ```
-
-   Edit the `dnp3-config.json` as follows:
-
-    ```json
-    {
-      "driver_config": {
-        "master_ip": "0.0.0.0",
+```json
+{
+    "remote_config": {
+        "driver_type": "dnp3",
         "outstation_ip": "127.0.0.1",
+        "port": 20000,
         "master_id": 2,
         "outstation_id": 1,
-        "port": 20000
-      },
-      "registry_config": "config://dnp3.csv",
-      "driver_type": "dnp3",
-      "interval": 5,
-      "timezone": "UTC",
-      "publish_depth_first_all": true,
-      "heart_beat_point": "random_bool"
-    }
-    ```
+        "control_mode": "direct",
+        "read_mode": "class",
+        "poll_classes": [0],
+        "integrity_poll_interval": 3600,
+        "unsolicited": false
+    },
+    "registry_config": "config://dnp3.csv",
+    "interval": 5,
+    "timezone": "UTC",
+    "publish_depth_first_all": true
+}
+```
 
-   Edit the `dnp3.csv` as follows:
+`remote_config` (the older `driver_config` key and its `master_ip` entry are still accepted) takes:
 
-    ```csv
-    Point Name,Volttron Point Name,Group,Variation,Index,Scaling,Units,Writable,Notes
-    AnalogInput_index0,AnalogInput_index0,30,6,0,1,NA,FALSE,Double Analogue input without status
-    AnalogInput_index1,AnalogInput_index1,30,6,1,1,NA,FALSE,Double Analogue input without status
-    AnalogInput_index2,AnalogInput_index2,30,6,2,1,NA,FALSE,Double Analogue input without status
-    AnalogInput_index3,AnalogInput_index3,30,6,3,1,NA,FALSE,Double Analogue input without status
-    BinaryInput_index0,BinaryInput_index0,1,2,0,1,NA,FALSE,Single bit binary input with status
-    BinaryInput_index1,BinaryInput_index1,1,2,1,1,NA,FALSE,Single bit binary input with status
-    BinaryInput_index2,BinaryInput_index2,1,2,2,1,NA,FALSE,Single bit binary input with status
-    BinaryInput_index3,BinaryInput_index3,1,2,3,1,NA,FALSE,Single bit binary input with status
-    AnalogOutput_index0,AnalogOutput_index0,40,4,0,1,NA,TRUE,Double-precision floating point with flags
-    AnalogOutput_index1,AnalogOutput_index1,40,4,1,1,NA,TRUE,Double-precision floating point with flags
-    AnalogOutput_index2,AnalogOutput_index2,40,4,2,1,NA,TRUE,Double-precision floating point with flags
-    AnalogOutput_index3,AnalogOutput_index3,40,4,3,1,NA,TRUE,Double-precision floating point with flags
-    BinaryOutput_index0,BinaryOutput_index0,10,2,0,1,NA,TRUE,Binary Output with flags
-    BinaryOutput_index1,BinaryOutput_index1,10,2,1,1,NA,TRUE,Binary Output with flags
-    BinaryOutput_index2,BinaryOutput_index2,10,2,2,1,NA,TRUE,Binary Output with flags
-    BinaryOutput_index3,BinaryOutput_index3,10,2,3,1,NA,TRUE,Binary Output with flags
-    
-    ```
+| Key | Default | Meaning |
+|---|---|---|
+| `driver_role` | `master` | `master` (or `client`) reaches the outstation below; `outstation` (or `server`) serves one to a remote master, see [Outstation role](#outstation-role). |
+| `outstation_ip` (or `host`) | required for a master | Outstation address. |
+| `bind_host` | `0.0.0.0` | Outstation role: the interface the served outstation listens on. |
+| `port` | 20000 | Outstation TCP port. |
+| `master_id` (or `master_address`) | 2 | DNP3 link address of this master. |
+| `outstation_id` (or `outstation_address`) | 1 | DNP3 link address of the outstation. One DriverAgent per `(driver_role, outstation_ip or bind_host, port, outstation_id)`. |
+| `control_mode` | `direct` | How outputs are operated unless a point says otherwise: `direct` (DIRECT_OPERATE) or `sbo` (SELECT then OPERATE; OPERATE is sent only when the SELECT echo accepts every control). |
+| `read_mode` | `class` | What a scheduled poll requests: `class` reads the data classes in `poll_classes`, `integrity` reads Class 0, 1, 2 and 3, `points` issues range reads of exactly the polled points. `get_point` always uses a range read. |
+| `poll_classes` | `[0]` | Data classes read by a `class` poll. Class 0 is the static data. |
+| `integrity_poll_interval` | 3600 | Seconds between integrity polls, which refresh every point and collect buffered events. 0 disables the periodic poll; one always runs when the connection opens. A due integrity poll replaces the next scheduled read. |
+| `unsolicited` | false | Enable unsolicited reporting of `unsolicited_classes` (default `[1, 2, 3]`). Events are published as they arrive (see below). |
+| `link_reset` | true | Send RESET_LINK_STATE when the connection opens. |
+| `response_timeout` | 5 | Seconds the proxy waits for the outstation to answer one request. |
+| `reply_timeout` | 3 x `response_timeout`, at least 30 | Seconds this interface waits for the proxy's reply. |
+| `registration_timeout` | 30 | Seconds to wait for the proxy process to start. |
+| `proxy_group` | unset | All outstations share one proxy process unless a group name is given. |
 
-   Add config to the configuration store:
+## Registry configuration
 
-    ```
-    vctl config store platform_driver_for_dnp3 devices/campus/building/dnp3 config/dnp3-config.json
-    vctl config store platform_driver_for_dnp3 dnp3.csv config/dnp3.csv --csv
-    ```
+```csv
+point_name,volttron_point_name,object_group,variation,index,scaling,units,writable,control_mode,control_code,notes
+DGEN.VMinRtg,AI_2,30,6,2,0.1,Volts,FALSE,,,Nameplate Minimum Voltage Rating
+DVVR.VVArCrv,AO_217,40,4,217,1,,TRUE,sbo,,Volt-VAr curve edit selector
+DOPR.PermOp,BO_3,10,2,3,,,TRUE,,latch,Permit service
+DGEN.WHrtg,CTR_5000,20,1,5000,1,Wh,FALSE,,,Energy counter
+```
 
-    <details>
-    <summary>Verify with `vctl config list` and `vctl config get` command. 
-    (Please refer to the `vctl config` documentation for more details.)</summary>
+| Column | Meaning |
+|---|---|
+| `Volttron Point Name` | The point's name on the platform. Required. |
+| `Point Name` | The point's name on the outstation (an IEC 61850 object in a MESA profile). Informational. |
+| `object_group`, `variation`, `index` | The point's DNP3 object group, variation and index. `Group`, the column of earlier registry files, is still read as the object group with a deprecation warning; `group` is refused because elsewhere it names the polling group (`polling_group`, as for every other interface). Groups read: 1, 2 (binary inputs), 3, 4 (double-bit inputs), 10, 11 (binary outputs), 20, 21, 22 (counters), 30, 32 (analog inputs), 40, 42 (analog outputs). A blank variation takes the usual one for the group (g1v2, g10v2, g20v1, g30v6, g40v4). For a writable analog output the registered group 40 variation also picks the group 41 command variation (1 INT32, 2 INT16, 3 FLT32, 4 FLT64). |
+| `Scaling` | Multiplier applied by the proxy: published value = outstation value x scaling; writes divide by it. Blank is 1. |
+| `Units` | Units reported in the publish metadata. |
+| `Writable` | TRUE for an output the platform may operate. Only groups 10 and 40 may be writable, except for served points (`Data Source` `server`), which the platform writes whatever their group. |
+| `Data Source` | `short_poll` by default: polled on the device's schedule. `never_poll` for points that arrive only by unsolicited response; `server` for served points (the default in the outstation role), which are never polled. See the platform driver's documentation for the other kinds. |
+| `Remote Writable` | Outstation role: TRUE if the remote master may operate this served point. Blank means outputs (groups 10 and 40) are, inputs and counters are not. |
+| `Class` (or `Event Class`) | Outstation role: the event class (1 to 3, or 0 for none) the point's changes are buffered in for the master's event polls. Blank is 1. Analog outputs raise no events. |
+| `Starting Value` | Outstation role: the value the point holds until something writes it. (Also accepted as `Default Value`, the master role's revert value.) |
+| `Control Mode` | Per-point override of the outstation's `control_mode`: `direct` or `sbo`. |
+| `Control Code` | For binary outputs: `latch` (default; true latches on, false latches off) or `pulse` (true pulses on, false pulses off) with `On Time`, `Off Time` (milliseconds) and `Count`. |
+| `Default Value` | The value `revert` writes when the point has no clean value yet. |
+| `Transform` | Accepted for compatibility with the discovery tooling; not applied (see below). |
+| `Notes` | Free text. |
 
-    ```shell
-    (env) kefei@ubuntu-22:~/sandbox/dnp3-driver-sandbox$ vctl config get platform_driver_for_dnp3 devices/campus/building/dnp3
-    {
-      "driver_config": {
-        "master_ip": "0.0.0.0",
-        "outstation_ip": "127.0.0.1",
+`interoperability.discovery.dnp3` in the interoperability service writes registries in this format from an IEEE 1815.2
+device profile.
+
+## Behaviour
+
+Points are published with their platform type: binary groups as booleans, counters as integers, analog groups as
+floats. A point whose quality lacks the ONLINE flag is reported as an error for that poll rather than as a stale value.
+Unknown indexes, refused controls (the status the outstation echoed, such as `status NOT_SUPPORTED`) and link failures
+are reported per point in the poll's error map; `set_point` raises on them.
+
+With `unsolicited` true the proxy listens for events between requests and pushes them to this interface, which
+publishes them through the driver's push path (the same mechanism as the BACnet interface's change-of-value
+subscriptions): the depth-first and breadth-first point topics, and the device's `multi` topics, per the publish
+settings in force. The base driver's `data_source` column is not yet wired to poll scheduling, so a point that
+receives unsolicited values is still read on the regular schedule as well.
+
+`Transform` and `Scaling` both describe the raw-to-engineering conversion. Scaling is applied by the proxy; the
+`Transform` expression is not yet applied by any interface and belongs in the base driver.
+
+## Outstation role
+
+With `"driver_role": "outstation"` the device *is* an outstation: the proxy listens on `bind_host:port` as DNP3 address
+`outstation_id` for the master at `master_id`, and the registry rows are the points it serves.
+
+```json
+{
+    "remote_config": {
+        "driver_type": "dnp3",
+        "driver_role": "outstation",
+        "bind_host": "0.0.0.0",
+        "port": 20000,
         "master_id": 2,
-        "outstation_id": 1,
-        "port": 20000
-      },
-      "registry_config": "config://dnp3.csv",
-      "driver_type": "dnp3",
-      "interval": 5,
-      "timezone": "UTC",
-      "publish_depth_first_all": true,
-      "heart_beat_point": "random_bool"
-    }
-    
-    (env) kefei@ubuntu-22:~/sandbox/dnp3-driver-sandbox$ vctl config get platform_driver_for_dnp3 dnp3.csv
-    [
-      {
-        "Point Name": "AnalogInput_index0",
-        "Volttron Point Name": "AnalogInput_index0",
-        "Group": "30",
-        "Variation": "6",
-        "Index": "0",
-    ...
-    ]
-    ```
+        "outstation_id": 1
+    },
+    "registry_config": "config://served.csv"
+}
+```
 
-    </details>
+```csv
+volttron_point_name,object_group,variation,index,scaling,units,writable,remote_writable,event_class,default_value
+AI_2,30,6,2,0.1,Volts,TRUE,,1,240.0
+BI_0,1,2,0,,,TRUE,,2,FALSE
+AO_1,40,1,1,10,,TRUE,TRUE,,100
+BO_3,10,2,3,,,TRUE,TRUE,,FALSE
+```
 
-1. Verify with logging data
+* Rows default to `Data Source` `server` and `Writable` TRUE (`prepare_registry_config`), so served points are never
+  polled and the platform may set any of them: `set_point` / `set_multiple_points` store the value the master will read,
+  and the interface reflects the stored value into the equipment tree and publishes it at once (the driver's push path).
+  `revert` restores `Starting Value`.
+* `get_point` / `get_multiple_points` report what the proxy currently holds; nothing is read on a schedule.
+* A control the master operates on a `Remote Writable` point is accepted by the proxy, stored, and pushed to this
+  interface, which publishes it like a change of value and records it as the point's last value. Controls on other points
+  are refused in-protocol (BLOCKED, or NOT_SUPPORTED for an unregistered index) and never reach the platform.
+  Reservations on the device apply to VOLTTRON actors only; the master's writes are governed by `Remote Writable` alone.
+* The master's polls (class 0 for static data, classes 1 to 3 for the buffered events, integrity for all) are answered
+  by the proxy; dnp3py's runner does not transmit unsolicited responses on its own, so events wait for an event poll.
+* Restarts. On every (re)registration the interface sends the equipment tree's current values with the point table,
+  the proxy applies them to served points it holds no value for, and then pushes its whole served table back. The proxy
+  manager relaunches a proxy that dies and the interface registers again, so a proxy crash costs nothing but the pause.
+  Across a platform driver restart the served values come from the agent's configuration store (`state/<device topic>`,
+  see the platform driver's documentation), which the driver reads into the tree before the device registers.
 
-   When the DNP3-Driver is properly installed and configured, we can verify with logging data in "volttron.log".
+## Testing
 
-    ```
-    tail -f <path to folder containing volttron.log>/volttron.log
-    ```
+```shell
+pytest tests
+```
 
-    <details>
-    <summary>Expected logging example</summary>
+The unit tests need no proxy, platform or outstation. `tests/test_end_to_end.py` starts dnp3py's own outstation on the
+loopback interface and runs the real interface, proxy manager and proxy subprocess against it; it is skipped when
+dnp3py is not installed.
 
-    ```shell
-    ...
-    2023-03-13 23:26:56,611 (volttron-platform-driver-0.2.0rc1 23666) volttron.driver.base.driver(334) DEBUG: finish publishing: devices/campus/building/dnp3/all
-    2023-03-13 23:26:57,897 () volttron.services.auth.auth_service(235) DEBUG: after getting peerlist to send auth updates
-    2023-03-13 23:26:57,897 () volttron.services.auth.auth_service(239) DEBUG: Sending auth update to peers platform.control
-    2023-03-13 23:26:57,897 () volttron.services.auth.auth_service(239) DEBUG: Sending auth update to peers platform_driver_for_dnp3
-    2023-03-13 23:26:57,898 () volttron.services.auth.auth_service(239) DEBUG: Sending auth update to peers platform.health
-    2023-03-13 23:26:57,898 () volttron.services.auth.auth_service(239) DEBUG: Sending auth update to peers platform.config_store
-    2023-03-13 23:26:57,898 () volttron.services.auth.auth_service(193) INFO: auth file /home/kefei/.volttron/auth.json loaded
-    2023-03-13 23:26:57,898 () volttron.services.auth.auth_service(172) INFO: loading auth file /home/kefei/.volttron/auth.json
-    2023-03-13 23:26:57,898 () volttron.services.auth.auth_service(185) DEBUG: Sending auth updates to peers
-    2023-03-13 23:26:58,241 (volttron-platform-driver-0.2.0rc1 23666) <stdout>(0) INFO: ['ms(1678768018241) INFO    tcpclient - Connecting to: 127.0.0.1']
-    2023-03-13 23:26:58,241 (volttron-platform-driver-0.2.0rc1 23666) <stdout>(0) INFO: ['ms(1678768018241) WARN    tcpclient - Error Connecting: Connection refused']
-    2023-03-13 23:26:59,905 () volttron.services.auth.auth_service(235) DEBUG: after getting peerlist to send auth updates
-    2023-03-13 23:26:59,905 () volttron.services.auth.auth_service(239) DEBUG: Sending auth update to peers platform.control
-    2023-03-13 23:26:59,905 () volttron.services.auth.auth_service(239) DEBUG: Sending auth update to peers platform_driver_for_dnp3...
-    ]
-    ```
-    </details>
+## Development
 
-1. (Optional) Verify with published data polled from outstation
-
-   To see data being polled from an outstation and published to the bus, we need to
-
-    * Set up an outstation, and
-    * install a [Listener Agent](https://pypi.org/project/volttron-listener/):
-
-   **Set up an outstation**: The [dnp3-python](https://github.com/VOLTTRON/dnp3-python) is part of the dnp3-driver
-   dependency, and it is immediately available after the DNP3-Driver is installed.
-
-   **Open another terminal**, and run `dnp3demo outstation`. For demo purpose, we assign arbitrary values to the
-   point. (
-   More details about the "dnp3demo" module, please
-   see [dnp3demo-Module.md](https://github.com/VOLTTRON/dnp3-python/blob/main/docs/dnp3demo-Module.md))
-
-   ```shell
-    ==== Outstation Operation MENU ==================================
-    <ai> - update analog-input point value (for local reading)
-    <ao> - update analog-output point value (for local control)
-    <bi> - update binary-input point value (for local reading)
-    <bo> - update binary-output point value (for local control)
-    <dd> - display database
-    <dc> - display configuration
-    =================================================================
-   
-    ======== Your Input Here: ==(outstation)======
-    ai
-    You chose <ai> - update analog-input point value (for local reading)
-    Type in <float> and <index>. Separate with space, then hit ENTER.
-    Type 'q', 'quit', 'exit' to main menu.
-    
-    
-    ======== Your Input Here: ==(outstation)======
-    0.1212 0
-    {'Analog': {0: 0.1212, 1: None, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}}
-    You chose <ai> - update analog-input point value (for local reading)
-    Type in <float> and <index>. Separate with space, then hit ENTER.
-    Type 'q', 'quit', 'exit' to main menu.
-    
-    
-    ======== Your Input Here: ==(outstation)======
-    1.2323 1
-    {'Analog': {0: 0.1212, 1: 1.2323, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}}
-    You chose <ai> - update analog-input point value (for local reading)
-    Type in <float> and <index>. Separate with space, then hit ENTER.
-    Type 'q', 'quit', 'exit' to main menu.
-   ```
-    <details>
-    <summary>Example of interaction with the `dnp3demo outstation` sub-command</summary>
-
-    ```shell
-    (env) kefei@ubuntu-22:~/sandbox/dnp3-driver-sandbox$ dnp3demo outstation
-    dnp3demo.run_outstation {'command': 'outstation', 'outstation_ip=': '0.0.0.0', 'port=': 20000, 'master_id=': 2, 'outstation_id=': 1}
-    ms(1678770551216) INFO    manager - Starting thread (0)
-    2023-03-14 00:09:11,216	control_workflow_demo	INFO	Connection Config
-    2023-03-14 00:09:11,216	control_workflow_demo	INFO	Connection Config
-    2023-03-14 00:09:11,216	control_workflow_demo	INFO	Connection Config
-    ms(1678770551216) INFO    server - Listening on: 0.0.0.0:20000
-    2023-03-14 00:09:11,216	control_workflow_demo	DEBUG	Initialization complete. Outstation in command loop.
-    2023-03-14 00:09:11,216	control_workflow_demo	DEBUG	Initialization complete. Outstation in command loop.
-    2023-03-14 00:09:11,216	control_workflow_demo	DEBUG	Initialization complete. Outstation in command loop.
-    Connection error.
-    Connection Config {'outstation_ip_str': '0.0.0.0', 'port': 20000, 'masterstation_id_int': 2, 'outstation_id_int': 1}
-    Start retry...
-    Connection error.
-    Connection Config {'outstation_ip_str': '0.0.0.0', 'port': 20000, 'masterstation_id_int': 2, 'outstation_id_int': 1}
-    ms(1678770565247) INFO    server - Accepted connection from: 127.0.0.1
-    ==== Outstation Operation MENU ==================================
-    <ai> - update analog-input point value (for local reading)
-    <ao> - update analog-output point value (for local control)
-    <bi> - update binary-input point value (for local reading)
-    <bo> - update binary-output point value (for local control)
-    <dd> - display database
-    <dc> - display configuration
-    =================================================================
-    
-    
-    ======== Your Input Here: ==(outstation)======
-    ai
-    You chose <ai> - update analog-input point value (for local reading)
-    Type in <float> and <index>. Separate with space, then hit ENTER.
-    Type 'q', 'quit', 'exit' to main menu.
-    
-    
-    ======== Your Input Here: ==(outstation)======
-    0.1212 0
-    {'Analog': {0: 0.1212, 1: None, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}}
-    You chose <ai> - update analog-input point value (for local reading)
-    Type in <float> and <index>. Separate with space, then hit ENTER.
-    Type 'q', 'quit', 'exit' to main menu.
-    
-    
-    ======== Your Input Here: ==(outstation)======
-    1.2323 1
-    {'Analog': {0: 0.1212, 1: 1.2323, 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None, 9: None}}
-    You chose <ai> - update analog-input point value (for local reading)
-    Type in <float> and <index>. Separate with space, then hit ENTER.
-    Type 'q', 'quit', 'exit' to main menu.
-    
-    
-    ======== Your Input Here: ==(outstation)======
-    ```
-    </details>
-
-   **Install the [Listener Agent](https://pypi.org/project/volttron-listener/)**:
-   Run `vctl install volttron-listener --start`. Once installed, you should see the data being published by viewing the
-   Volttron logs file. (i.e., `tail -f <path to folder containing volttron.log>/volttron.log`)
-   > **Note**:
-   > it is recommended to restart the Platform Driver after a specific driver is installed and configured. i.e.,
-   > using the `vctl restart <agent-uuid>` command.) The expected logging will be similar as follows:
-
-    ```shell
-    2023-03-14 00:11:55,000 (volttron-platform-driver-0.2.0rc0 24737) volttron.driver.base.driver(277) DEBUG: scraping device: campus/building/dnp3
-    2023-03-14 00:11:55,805 (volttron-platform-driver-0.2.0rc0 24737) volttron.driver.base.driver(330) DEBUG: publishing: devices/campus/building/dnp3/all
-    2023-03-14 00:11:55,810 (volttron-listener-0.2.0rc0 24424) listener.agent(104) INFO: Peer: pubsub, Sender: platform_driver_for_dnp3:, Bus: , Topic: devices/campus/building/dnp3/all, Headers: {'Date': '2023-03-14T05:11:55.805245+00:00', 'TimeStamp': '2023-03-14T05:11:55.805245+00:00', 'SynchronizedTimeStamp': '2023-03-14T05:11:55.000000+00:00', 'min_compatible_version': '3.0', 'max_compatible_version': ''}, Message: 
-    [{'AnalogInput_index0': 0.1212,
-      'AnalogInput_index1': 1.2323,
-      'AnalogInput_index2': 0.0,
-      'AnalogInput_index3': 0.0,
-      'AnalogOutput_index0': 0.0,
-      'AnalogOutput_index1': 0.0,
-      'AnalogOutput_index2': 0.0,
-      'AnalogOutput_index3': 0.0,
-      'BinaryInput_index0': False,
-      'BinaryInput_index1': False,
-      'BinaryInput_index2': False,
-      'BinaryInput_index3': False,
-      'BinaryOutput_index0': False,
-      'BinaryOutput_index1': False,
-      'BinaryOutput_index2': False,
-      'BinaryOutput_index3': False},
-     {'AnalogInput_index0': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'AnalogInput_index1': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'AnalogInput_index2': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'AnalogInput_index3': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'AnalogOutput_index0': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'AnalogOutput_index1': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'AnalogOutput_index2': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'AnalogOutput_index3': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'BinaryInput_index0': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'BinaryInput_index1': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'BinaryInput_index2': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'BinaryInput_index3': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'BinaryOutput_index0': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'BinaryOutput_index1': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'BinaryOutput_index2': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'},
-      'BinaryOutput_index3': {'type': 'integer', 'tz': 'UTC', 'units': 'NA'}}]
-    2023-03-14 00:11:55,810 (volttron-platform-driver-0.2.0rc0 24737) volttron.driver.base.driver(334) DEBUG: finish publishing: devices/campus/building/dnp3/all
-    2023-03-14 00:11:56,825 (volttron-listener-0.2.0rc0 24424) listener.agent(104) INFO: Peer: pubsub, Sender: volttron-listener-0.2.0rc0_2:, Bus: , Topic: heartbeat/volttron-listener-0.2.0rc0_2, Headers: {'TimeStamp': '2023-03-14T05:11:56.820827+00:00', 'min_compatible_version': '3.0', 'max_compatible_version': ''}, Message: 
-    
-    ```
-
-1. Shutdown the platform
-
-   ```shell
-   vctl shutdown --platform
-   ```
-
-# Development
-
-Please see the following for contributing
-guidelines [contributing](https://github.com/eclipse-volttron/volttron-core/blob/develop/CONTRIBUTING.md).
-
-Please see the following helpful guide
-about [developing modular VOLTTRON agents](https://github.com/eclipse-volttron/volttron-core/blob/develop/DEVELOPING_ON_MODULAR.md)
+This library is maintained by the VOLTTRON Development Team. Please see the
+[guidelines](https://github.com/eclipse-volttron/volttron-core/blob/develop/CONTRIBUTING.md) for contributing to this
+and other VOLTTRON repositories.
 
 # Disclaimer Notice
 
 This material was prepared as an account of work sponsored by an agency of the
-United States Government. Neither the United States Government nor the United
+United States Government.  Neither the United States Government nor the United
 States Department of Energy, nor Battelle, nor any of their employees, nor any
 jurisdiction or organization that has cooperated in the development of these
 materials, makes any warranty, express or implied, or assumes any legal

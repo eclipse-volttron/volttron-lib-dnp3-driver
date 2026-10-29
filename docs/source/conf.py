@@ -34,8 +34,8 @@ project = 'VOLTTRON DNP3 Driver'
 copyright = '2022, Pacific Northwest National Lab'
 author = 'Pacific Northwest National Lab'
 
-release = '0.1'
-version = '0.1.0'
+release = '2.0'
+version = '2.0.0rc0'
 
 # -- General configuration
 

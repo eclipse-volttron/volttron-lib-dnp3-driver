@@ -4,90 +4,77 @@
 DNP3 Driver
 ===========
 
-VOLTTRON's DNP3 driver enables the use of `DNP3 <https://en.wikipedia.org/wiki/DNP3>`_ (Distributed Network Protocol)
-communications as a DNP3 master, reading and writing points to a remote server (DNP3 Outstation).
+VOLTTRON's DNP3 driver reads and operates points on a DNP3 (IEEE 1815-2012) outstation as a DNP3 master. The protocol
+runs in a separate DNP3 Protocol Proxy process built on the pure Python `dnp3py <https://github.com/craigpnnl/dnp3py>`_
+library; the driver interface registers the outstation and its points with that proxy, polls and operates points
+through it, and publishes the unsolicited responses it pushes back.
 
 Requirements
 ============
 
-The DNP3 driver requires the `dnp3-python <https://github.com/VOLTTRON/dnp3-python>`_ library, a DNP3 Python
-implementation wrapping the `opendnp3 <https://github.com/dnp3/opendnp3>`_ library.
-This library can be installed in an activated environment with:
-
-.. code-block:: bash
-
-    pip install dnp3-python
-
+The interface depends on ``protocol-proxy-dnp3``, which installs ``protocol-proxy`` and ``dnp3py``. Python 3.11 or
+later is required. No C libraries are involved.
 
 Driver Configuration
 ====================
 
-The DNP3 driver configuration file follows :ref:`Device Configuration File <Device-Configuration-File>` convention.
-Within the DNP3 driver configuration file, the "driver_config" argument is a key-value dictionary used to establish
-communication with a DNP3 outstation:
+The device configuration follows the :ref:`Device Configuration File <Device-Configuration-File>` convention. Its
+``remote_config`` (``driver_config`` is still accepted) names the outstation and how to read and operate it:
 
-    - **master_ip** - master_ip: master station (driver host) ip address
-    - **outstation_ip** - outstation (remote host) ip address
-    - **master_id** - master station ID
-    - **outstation_id** - outstation ID
-    - **port** - port number
-
-Here is a sample DNP3 driver configuration file:
+    - **outstation_ip** (or ``host``) - outstation address.
+    - **port** - outstation TCP port (20000).
+    - **master_id** - DNP3 link address of this master (2).
+    - **outstation_id** - DNP3 link address of the outstation (1).
+    - **control_mode** - ``direct`` (DIRECT_OPERATE, the default) or ``sbo`` (SELECT then OPERATE).
+    - **read_mode** - ``class`` (read ``poll_classes``, default ``[0]``), ``integrity`` or ``points``.
+    - **integrity_poll_interval** - seconds between integrity polls (3600; 0 disables, one always runs on connect).
+    - **unsolicited** - enable unsolicited reporting of ``unsolicited_classes`` (``[1, 2, 3]``); events are published as pushes.
+    - **link_reset**, **response_timeout**, **reply_timeout**, **registration_timeout**, **proxy_group** - see the README.
 
 .. code-block:: json
 
     {
-      "driver_config": {
-        "master_ip": "0.0.0.0",
+      "remote_config": {
+        "driver_type": "dnp3",
         "outstation_ip": "127.0.0.1",
+        "port": 20000,
         "master_id": 2,
         "outstation_id": 1,
-        "port": 20000
+        "control_mode": "direct",
+        "read_mode": "class",
+        "integrity_poll_interval": 3600
       },
       "registry_config": "config://dnp3.csv",
-      "driver_type": "dnp3",
       "interval": 5,
       "timezone": "UTC",
-      "publish_depth_first_all": true,
-      "heart_beat_point": "random_bool"
+      "publish_depth_first_all": true
     }
-
-A sample DNP3 driver configuration file can be found `here <https://github.com/eclipse-volttron/volttron-lib-dnp3-driver/blob/main/example-config/dnp3.config>`_.
-
 
 DNP3 Registry Configuration File
 ================================
 
-All valid data types and formats in DNP3 are identified by group and variation numbers. When a DNP3 outstation
-transmits a message containing response data, the message identifies the group number and variation of every value within
-the message. The group-variation pair numbers provide sufficient information for the receiver to parse and
-properly interpret the data. DNP3’s basic documentation contains a `table <https://docs.stepfunc.io/dnp3/0.9.0/dotnet/namespacednp3.html#a467a3b6f7d543e90374b39c8088cadfbaff335165a793b52dafbd928a8864f607>`_
-of valid groups and their variations.
+Every DNP3 value is identified by its object group, variation and index. The registry names each point's position
+and how the driver should handle it:
 
-The driver's registry configuration file specifies information related to each point on the device, in a CSV or JSON file.
-More detailed information of driver registry files may be found :ref:`here <Registry-Configuration-File>`.
-The driver’s registry configuration must contain the following items for each point:
-
-    - **Volttron Point Name** - The name used by the VOLTTRON platform and agents to refer to the point.
-    - **Group** - The point's DNP3 group number.
-    - **Variation** - The point's DNP3 variation number.
-    - **Index** - The point's index number within its DNP3 data type.
-    - **Scaling** - A factor by which to multiply point values.
-    - **Units** - Point value units.
-    - **Writable** - TRUE or FALSE, indicating whether the point can be written by the driver (FALSE = read-only).
-
-Point definitions in the DNP3 driver's registry should look similar as following:
+    - **Volttron Point Name** - the name used by the platform and agents. Required.
+    - **Point Name** - the point's name on the outstation (an IEC 61850 object in a MESA profile). Informational.
+    - **Group**, **Variation**, **Index** - groups 1, 2, 3, 4, 10, 11, 20, 21, 22, 30, 32, 40 and 42 are read. A blank
+      variation takes the usual one for the group. For a writable analog output the group 40 variation also selects
+      the group 41 command variation (1 INT32, 2 INT16, 3 FLT32, 4 FLT64).
+    - **Scaling** - multiplier applied by the proxy: published value = outstation value x scaling; writes divide by it.
+    - **Units** - units reported in the publish metadata.
+    - **Writable** - TRUE for outputs (groups 10 and 40 only).
+    - **Control Mode** - per-point override of ``control_mode``: ``direct`` or ``sbo``.
+    - **Control Code** - for binary outputs, ``latch`` (default) or ``pulse`` with **On Time**, **Off Time** and **Count**.
+    - **Default Value** - the value ``revert`` writes when the point has no clean value yet.
 
 .. csv-table:: DNP3
-    :header: Point Name,Volttron Point Name,Group,Variation,Index,Scaling,Units,Writable,Notes
+    :header: Point Name,Volttron Point Name,Group,Variation,Index,Scaling,Units,Writable,Control Mode,Control Code,Notes
 
-    AnalogInput_index0,AnalogInput_index0,30,6,0,1,NA,FALSE,Double Analogue input without status
-    BinaryInput_index0,BinaryInput_index0,1,2,0,1,NA,FALSE,Single bit binary input with status
-    AnalogOutput_index0,AnalogOutput_index0,40,4,0,1,NA,TRUE,Double-precision floating point with flags
-    BinaryOutput_index0,BinaryOutput_index0,10,2,0,1,NA,TRUE,Binary Output with flags
+    DGEN.VMinRtg,AI_2,30,6,2,0.1,Volts,FALSE,,,Nameplate Minimum Voltage Rating
+    DVVR.VVArCrv,AO_217,40,4,217,1,,TRUE,sbo,,Volt-VAr curve edit selector
+    DOPR.PermOp,BO_3,10,2,3,,,TRUE,,latch,Permit service
+    DGEN.WHrtg,CTR_5000,20,1,5000,1,Wh,FALSE,,,Energy counter
 
-
-A sample DNP3 driver registry configuration file is available
-in `dnp3.csv <https://github.com/eclipse-volttron/volttron-lib-dnp3-driver/blob/main/example-config/dnp3.csv>`_.
-
-For more information about Group Variation definition, please refer to `dnp3.Variation <https://docs.stepfunc.io/dnp3/0.9.0/dotnet/namespacednp3.html#a467a3b6f7d543e90374b39c8088cadfbaff335165a793b52dafbd928a8864f607>`_.
+Binary groups publish as booleans, counters as integers and analog groups as floats. A point whose quality lacks the
+ONLINE flag is reported as an error for that poll. Refused controls carry the status the outstation echoed.
