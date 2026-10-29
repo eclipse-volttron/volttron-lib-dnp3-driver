@@ -313,6 +313,16 @@ class TestOutstationRole:
         assert iface.prepare_registry_config(rows, RemoteConfig(driver_type='dnp3', outstation_ip='h')) == rows
         assert [Dnp3PointConfig(**r).is_served for r in prepared] == [True, False]
 
+    def test_prepare_registry_config_replaces_polling_sources_on_served_rows(self, make_interface):
+        iface = make_interface(**SERVED)
+        rows = [{'Volttron Point Name': 'AI_2', 'Group': 30, 'Index': 2, 'Data Source': 'short_poll'},
+                {'Volttron Point Name': 'AI_3', 'Group': 30, 'Index': 3, 'data_source': 'poll_once', 'Writable': 'FALSE'},
+                {'Volttron Point Name': 'AI_4', 'Group': 30, 'Index': 4, 'Data Source': 'never_poll', 'Writable': 'FALSE'}]
+        prepared = iface.prepare_registry_config(rows, RemoteConfig(**SERVED))
+        assert [r['data_source'] for r in prepared[:2]] == ['server', 'server'] and all('Data Source' not in r for r in prepared[:2])
+        assert prepared[1]['Writable'] == 'FALSE' and prepared[2] == rows[2]
+        assert [Dnp3PointConfig(**r).is_served for r in prepared] == [True, True, False]
+
     def test_registration_payload_describes_the_served_outstation(self, make_interface, ppm):
         iface = make_interface(SERVED_POINTS, **SERVED)
         ppm.queue(serialized({'server': 'outstation:127.0.0.1:20010:4', 'points': 5, 'role': 'outstation'}))

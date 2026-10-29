@@ -124,7 +124,8 @@ class Dnp3(ProxyBackedInterface, BasicRevert, BaseInterface):
         prepared = []
         for row in registry_config:
             row = dict(row)
-            if _blank(row, 'data_source', 'Data Source'):
+            if _blank(row, 'data_source', 'Data Source') or _polled(row):
+                row.pop('Data Source', None)
                 row['data_source'] = 'server'
             if _blank(row, 'writable', 'Writable'):
                 row['writable'] = True
@@ -241,6 +242,15 @@ class Dnp3(ProxyBackedInterface, BasicRevert, BaseInterface):
         return 'dnp3', cfg.driver_role.value, host, cfg.port, cfg.outstation_id
 
 
+_POLLED_SOURCES = {'short_poll', 'long_poll', 'poll_once', 'shortpoll', 'longpoll', 'pollonce'}
+
+
 def _blank(row: dict, *keys: str) -> bool:
     """Whether none of ``keys`` carries a value in a registry row."""
     return all(row.get(key) in (None, '') for key in keys)
+
+
+def _polled(row: dict) -> bool:
+    """A polling data source: it says how often a master reads and means nothing to a served point."""
+    source = next((row[key] for key in ('data_source', 'Data Source') if row.get(key) not in (None, '')), None)
+    return source is not None and str(getattr(source, 'value', source)).strip().lower() in _POLLED_SOURCES
